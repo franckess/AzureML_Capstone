@@ -25,7 +25,7 @@ Below are the steps:
 
 ## Architecture Diagram
 
-![](https://github.com/franckess/AzureML_Capstone/blob/main/img/architecture_diagram.JPG)
+![](https://github.com/franckess/AzureML_Capstone/blob/main/img/architecture_diagram.jpeg)
 
 ## Dataset
 
