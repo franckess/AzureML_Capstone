@@ -43,21 +43,17 @@ The dataset summarizes heterogeneous set of features about the articles publishe
 
 Attribute Information:
 - `url`:                           URL of the article
-- `timedelta`:                     Days between the article publication and
--                                  the dataset acquisition
+- `timedelta`:                     Days between the article publication and the dataset acquisition
 - `n_tokens_title`:                Number of words in the title
 - `n_tokens_content`:              Number of words in the content
 - `n_unique_tokens`:               Rate of unique words in the content
 - `n_non_stop_words`:              Rate of non-stop words in the content
-- `n_non_stop_unique_tokens`:      Rate of unique non-stop words in the
--                                  content
+- `n_non_stop_unique_tokens`:      Rate of unique non-stop words in the content
 - `num_hrefs`:                     Number of links
-- `num_self_hrefs`:                Number of links to other articles
--                                  published by Mashable
+- `num_self_hrefs`:                Number of links to other articles published by Mashable
 - `num_imgs`:                      Number of images
 - `num_videos`:                    Number of videos
-- `average_token_length`:          Average length of the words in the
--                                  content
+- `average_token_length`:          Average length of the words in the content
 - `num_keywords`:                  Number of keywords in the metadata
 - `data_channel_is_lifestyle`:     Is data channel 'Lifestyle'?
 - `data_channel_is_entertainment`: Is data channel 'Entertainment'?
@@ -74,12 +70,9 @@ Attribute Information:
 - `kw_min_avg`:                    Avg. keyword (min. shares)
 - `kw_max_avg`:                    Avg. keyword (max. shares)
 - `kw_avg_avg`:                    Avg. keyword (avg. shares)
-- `self_reference_min_shares`:     Min. shares of referenced articles in
--                                  Mashable
-- `self_reference_max_shares`:     Max. shares of referenced articles in
--                                  Mashable
-- `self_reference_avg_sharess`:    Avg. shares of referenced articles in
--                                  Mashable
+- `self_reference_min_shares`:     Min. shares of referenced articles in Mashable
+- `self_reference_max_shares`:     Max. shares of referenced articles in Mashable
+- `self_reference_avg_sharess`:    Avg. shares of referenced articles in Mashable
 - `weekday_is_monday`:             Was the article published on a Monday?
 - `weekday_is_tuesday`:            Was the article published on a Tuesday?
 - `weekday_is_wednesday`:          Was the article published on a Wednesday?
@@ -97,10 +90,8 @@ Attribute Information:
 - `global_sentiment_polarity`:     Text sentiment polarity
 - `global_rate_positive_words`:    Rate of positive words in the content
 - `global_rate_negative_words`:    Rate of negative words in the content
-- `rate_positive_words`:           Rate of positive words among non-neutral
--                                  tokens
-- `rate_negative_words`:           Rate of negative words among non-neutral
--                                  tokens
+- `rate_positive_words`:           Rate of positive words among non-neutral tokens
+- `rate_negative_words`:           Rate of negative words among non-neutral tokens
 - `avg_positive_polarity`:         Avg. polarity of positive words
 - `min_positive_polarity`:         Min. polarity of positive words
 - `max_positive_polarity`:         Max. polarity of positive words
