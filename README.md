@@ -157,5 +157,5 @@ The data is loaded to a remote datastore on AzureML from there we can apply both
 
 
 <p align="center">
-  <img src="https://i.pinimg.com/originals/e2/d7/c7/e2d7c71b09ae9041c310cb6b2e2918da.gif" alt="animated" />
+  <img src="https://media.giphy.com/media/beNeX29fBOizu/giphy.gif" alt="animated" />
 </p>
