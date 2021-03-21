@@ -156,4 +156,6 @@ The data is loaded to a remote datastore on AzureML from there we can apply both
 *TODO (Optional):* This is where you can provide information about any standout suggestions that you have attempted.
 
 
-![](https://i.pinimg.com/originals/e2/d7/c7/e2d7c71b09ae9041c310cb6b2e2918da.gif)
+<p align="center">
+  <img src="https://i.pinimg.com/originals/e2/d7/c7/e2d7c71b09ae9041c310cb6b2e2918da.gif" alt="animated" />
+</p>
