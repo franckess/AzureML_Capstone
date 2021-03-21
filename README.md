@@ -108,10 +108,23 @@ Class Distribution: the class value (shares) is continuously valued. We transfor
 Shares Value Range: `{'<1400':18490, '>=1400':21154}`
 
 ### Task
-*TODO*: Explain the task you are going to be solving with this dataset and the features you will be using for it.
+
+We want to know:
+
+- How to predict which news articles will be popular
+- What features about news articles make them more popular
+
+This is important to:
+
+- Help news sites become more profitable: Generate a model and feature insights that will give a company an advantage over other platforms vying for customer consumption.
+- Raise awareness of important issues: Insights about what makes news popular can produce insights to help policy writers gain a following around their policy issue.
+
+Trade-offs: Efficiency (popularity prediction) and fairness (even distribution of article post days and themes)
 
 ### Access
-*TODO*: Explain how you are accessing the data in your workspace.
+The original dataset was downloaded from [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/datasets/Online+News+Popularity#). A subfolder `/data` was created to save this data.
+
+The data is loaded to a remote datastore on AzureML from there we can apply both `AutoML` and `HyperDrive` approaches for modeling.
 
 ## Automated ML
 *TODO*: Give an overview of the `automl` settings and configuration you used for this experiment
@@ -141,3 +154,6 @@ Shares Value Range: `{'<1400':18490, '>=1400':21154}`
 
 ## Standout Suggestions
 *TODO (Optional):* This is where you can provide information about any standout suggestions that you have attempted.
+
+
+![](https://i.pinimg.com/originals/e2/d7/c7/e2d7c71b09ae9041c310cb6b2e2918da.gif)
