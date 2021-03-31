@@ -8,7 +8,7 @@
 
 A recent survey has shown that people read a fair bit amount of time online and the screen time is still rising. For that matter the number of views of specific content is of interest as more views translate to more revenues. Building a system to predict whether a news article will be popular or not can help editors to identify how they could improve their content but also how they could generate significant financial returns.
 
-In this last project, we create two models to solve this classification problem: one using `Automated ML` and one customized model whose hyperparameters are tuned using `HyperDrive`. Then we compare the performance of both the models and deploy the best performing model as a __web service__.
+In this project we create two models to solve this classification problem: one using `Automated ML` and one customized model with hyperparameters tuned using `HyperDrive`. Then we compare the performance of both the models and deploy the best performing model. Finally the endpoint produced will be used to get some answers about predictions.
 
 ## Project Set Up and Installation
 
