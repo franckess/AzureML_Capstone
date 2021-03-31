@@ -3,9 +3,9 @@ import argparse
 import os
 import pingouin as pg
 import numpy as np
-from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+import lightgbm as lgb
 from boruta import BorutaPy
 import joblib
 import pandas as pd
@@ -31,15 +31,60 @@ def create_label(df):
     df_copy['label'] = [1 if x >= 1400 else 0 for x in df_copy['shares']]
 
     # Encoding categorical data
-    y = df_news['label'].values
+    y = df_copy['label'].values
     labelencoder = LabelEncoder()
-    df_news['label'] = labelencoder.fit_transform(y)
+    df_copy['label'] = labelencoder.fit_transform(y)
+
+    return df_copy
+
+def scaling_num(df):
+    df_copy = df.copy() # create a copy
+
+    col_list = ['data_channel_is_lifestyle', 'data_channel_is_entertainment', 'data_channel_is_bus', \
+          'data_channel_is_socmed', 'data_channel_is_tech', 'data_channel_is_world', 'weekday_is_monday', \
+          'weekday_is_tuesday', 'weekday_is_wednesday', 'weekday_is_thursday', 'weekday_is_friday', \
+          'weekday_is_saturday', 'weekday_is_sunday', 'is_weekend', 'timedelta', 'shares', 'label']
+
+    # Scaling numerical data
+    from sklearn.preprocessing import MinMaxScaler
+    num_cols = [m for m in df_copy if m not in col_list]
+    scale = MinMaxScaler()
+    df_news[num_cols] = pd.DataFrame(scale.fit_transform(df_copy[num_cols].values), columns=[num_cols], index=df_copy.index)
+
+    return df_copy
+
+def feature_selection(df, OUT_DIR):
+    df_copy = df.copy() # create a copy
+
+    feat_selector = joblib.load(OUT_DIR)
+    X = df_copy.drop(['shares', 'timedelta', 'label'], axis=1)
+    keep_cols = list(X.columns[feat_selector.support_]) + ['timedelta','label']
+
+    df_copy = df_copy[keep_cols]
+    
+    return df_copy
+
+def split_train_test(df, qt = 0.8):
+    df_copy = df.copy() # create a copy
+
+    split_timedelta = df_copy['timedelta'].quantile(qt)
+
+    train_df = df_copy[df_copy['timedelta'] <= split_timedelta]
+    test_df = df_copy[df_copy['timedelta'] > split_timedelta]
+
+    X_train = train_df.drop(['shares', 'timedelta', 'label'], axis=1)
+    X_test = test_df.drop(['shares', 'timedelta', 'label'], axis=1)
+    y_train = train_df['label']
+    y_test = test_df['label']
+
+    return X_train, X_test, y_train, y_test
 
 if __name__ == "__main__":
     
     # Parse input arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data-folder", type=str, dest="data_folder", default=".", help="data folder mounting point")
+    parser.add_argument("--data-folder", type=str, dest='data_folder', default="https://raw.githubusercontent.com/franckess/AzureML_Capstone/main/data/OnlineNewsPopularity.csv", help="data folder")
+    parser.add_argument("--boruta-model", type=str, dest='boruta_model', default="https://github.com/franckess/AzureML_Capstone/blob/main/output/boruta_model.pkl?raw=true", help="boruta folder")
     parser.add_argument("--num-leaves", type=int, dest="num_leaves", default=64, help="# of leaves of the tree")
     parser.add_argument("--min-data-in-leaf", type=int, dest="min_data_in_leaf", default=50, help="minimum # of samples in each leaf")
     parser.add_argument("--learning-rate", type=float, dest="learning_rate", default=0.001, help="learning rate")
@@ -55,19 +100,16 @@ if __name__ == "__main__":
     # Start an Azure ML run
     run = Run.get_context()
 
-    # Data paths
-    DATA_DIR = args.data_folder
-  
-    
-    # Data and forecast problem parameters
-    time_column_name = 'date'
-    forecast_horizon = 28
-    gap = 0
+    # Data path
+    DATA_LOC = args.data_folder
+
+    # Boruta path
+    BORUTA_DIR = args.boruta_model
 
     
   # Parameters of GBM model
     params = {
-        "objective": "root_mean_squared_error",
+        "objective": "binary",
         "num_leaves": args.num_leaves,
         "min_data_in_leaf": args.min_data_in_leaf,
         "learning_rate": args.learning_rate,
@@ -82,56 +124,39 @@ if __name__ == "__main__":
     print(params)
     
     # Load training data
-    default_train_file = os.path.join(DATA_DIR, "train.csv")
-    if os.path.isfile(default_train_file):
-        df_train = pd.read_csv(default_train_file,parse_dates=[time_column_name])
-        print(df_train.head())
-    else:
-        df_train = pd.read_csv(os.path.join(DATA_DIR, "train_" + str(r + 1) + ".csv"),parse_dates=[time_column_name])
+    df = Dataset.Tabular.from_delimited_files(DATA_LOC)
         
-    # transform object type to category type to be used by lgbm
-    df_train = change_data_type(df_train)
+    # Perform Data pre-processing
+    df = corr_drop_cols(df)
+
+    df = create_label(df)
+
+    df = scaling_num(df)
+
+    df = feature_selection(df, BORUTA_DIR)
     
-    # Split train data into training dataset and validation dataset
-    df_train_2, df_val = split_train_test(df_train,forecast_horizon, gap)
-    
-    # Get features and labels
-    X_train=df_train_2.drop(['demand'],axis=1)
-    y_train=df_train_2['demand']
-    X_val=df_val.drop(['demand'],axis=1)
-    y_val=df_val['demand']
-    
-    X_train.drop(columns='date',inplace=True)
-    X_val.drop(columns='date',inplace=True)
+    # Split train data into train & test
+    X_train, X_test, y_train, y_test = split_train_test(df)
     
     d_train = lgb.Dataset(X_train, y_train)
-    d_val = lgb.Dataset(X_val, y_val)
-    
-    print(X_train.info())
-    
-    # A dictionary to record training results
-    evals_result = {}
+    d_val = lgb.Dataset(X_test, y_test)
 
     # Train LightGBM model
-    bst = lgb.train(params, d_train, valid_sets=[d_train, d_val], categorical_feature="auto", evals_result=evals_result)
+    clf = lgb.train(params, d_train, 100, categorical_feature="auto")
 
-    # Get final training loss & validation loss 
-    print(evals_result["training"].keys())
-    train_loss = evals_result["training"]["rmse"][-1]
-    val_loss = evals_result["valid_1"]["rmse"][-1]
-    
-    y_max = y_val.max()
-    y_min = y_val.min()
-    y_diff = (y_max - y_min)
+    #prediction on the test set
+    y_pred=clf.predict(X_test)
     
     
-    print("Final training loss is {}".format(train_loss/y_diff))
-    print("Final test loss is {}".format(val_loss/y_diff))
+    # view accuracy
+    accuracy=accuracy_score(y_pred, y_test)
+    print('LightGBM Model accuracy score: {0:0.4f}'.format(accuracy_score(y_test, y_pred)))
     
     # Log the validation loss (NRMSE - normalized root mean squared error)
-    run.log("NRMSE", np.float(val_loss/y_diff))
+    run.log("Model accuracy", np.float(accuracy_score(y_test, y_pred)))
  
  
     #Dump the model using joblib
-    os.makedirs('outputs', exist_ok=True)
-    joblib.dump(value=bst, filename='outputs/bst-model.pkl')
+    os.makedirs("./output/", exist_ok=True)
+    model_path = os.path.join("./output/", 'lightgbm_model.pkl')
+    joblib.dump(clf, filename=model_path)
