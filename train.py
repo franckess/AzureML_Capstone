@@ -1,23 +1,29 @@
-from sklearn.preprocessing import LabelEncoder
-import argparse
+from __future__ import print_function
 import os
+import warnings
+import argparse
 import pingouin as pg
 import numpy as np
+import requests
+import pandas as pd
+import azureml.core
+import lightgbm as lgb
+from io import BytesIO
+from boruta import BorutaPy
+from azureml.core.run import Run
+from urllib.request import urlopen
+from sklearn.externals import joblib
+from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import accuracy_score
-import lightgbm as lgb
-from boruta import BorutaPy
-import joblib
-import pandas as pd
-from azureml.core.run import Run
-from azureml.core.dataset import Dataset
-from azureml.data.dataset_factory import TabularDatasetFactory
+
+warnings.filterwarnings(action='ignore', category=UserWarning, module='lightgbm')
 
 def corr_drop_cols(df, corr_val = 0.75):
     df_copy = df.copy() # create a copy
 
     corrmat = pg.pairwise_corr(df_copy, method='pearson')[['X', 'Y', 'r']]
-    df_corr = corrmat.sort_values(by='r', ascending=0)[(corrmat['r'] >= corr_val) | (corrmat['r'] <= -1*corr_va)]
+    df_corr = corrmat.sort_values(by='r', ascending=0)[(corrmat['r'] >= corr_val) | (corrmat['r'] <= -1*corr_val)]
     setcols = set(df_corr.Y.to_list())
     
     # Drop columns high correlation values
@@ -28,9 +34,8 @@ def corr_drop_cols(df, corr_val = 0.75):
 def create_label(df):
     df_copy = df.copy() # create a copy
 
-    df_copy['label'] = [1 if x >= 1400 else 0 for x in df_copy['shares']]
-
     # Encoding categorical data
+    df_copy['label'] = [1 if x >= 1400 else 0 for x in df_copy['shares']]
     y = df_copy['label'].values
     labelencoder = LabelEncoder()
     df_copy['label'] = labelencoder.fit_transform(y)
@@ -40,23 +45,20 @@ def create_label(df):
 def scaling_num(df):
     df_copy = df.copy() # create a copy
 
-    col_list = ['data_channel_is_lifestyle', 'data_channel_is_entertainment', 'data_channel_is_bus', \
-          'data_channel_is_socmed', 'data_channel_is_tech', 'data_channel_is_world', 'weekday_is_monday', \
-          'weekday_is_tuesday', 'weekday_is_wednesday', 'weekday_is_thursday', 'weekday_is_friday', \
-          'weekday_is_saturday', 'weekday_is_sunday', 'is_weekend', 'timedelta', 'shares', 'label']
-
     # Scaling numerical data
     from sklearn.preprocessing import MinMaxScaler
+    col_list = [s for s in df_copy.columns if 'is' in s] + ['timedelta', 'shares', 'label']
     num_cols = [m for m in df_copy if m not in col_list]
     scale = MinMaxScaler()
-    df_news[num_cols] = pd.DataFrame(scale.fit_transform(df_copy[num_cols].values), columns=[num_cols], index=df_copy.index)
+    df_copy[num_cols] = pd.DataFrame(scale.fit_transform(df_copy[num_cols].values), columns=[num_cols], index=df_copy.index)
 
     return df_copy
 
-def feature_selection(df, OUT_DIR):
+def feature_selection(df, OUT_LOC):
     df_copy = df.copy() # create a copy
-
-    feat_selector = joblib.load(OUT_DIR)
+    
+    mfile = BytesIO(requests.get(OUT_LOC).content) # BytesIO create a file object out of the response from GitHub 
+    feat_selector = joblib.load(mfile)
     X = df_copy.drop(['shares', 'timedelta', 'label'], axis=1)
     keep_cols = list(X.columns[feat_selector.support_]) + ['timedelta','label']
 
@@ -72,8 +74,8 @@ def split_train_test(df, qt = 0.8):
     train_df = df_copy[df_copy['timedelta'] <= split_timedelta]
     test_df = df_copy[df_copy['timedelta'] > split_timedelta]
 
-    X_train = train_df.drop(['shares', 'timedelta', 'label'], axis=1)
-    X_test = test_df.drop(['shares', 'timedelta', 'label'], axis=1)
+    X_train = train_df.drop(['timedelta', 'label'], axis=1)
+    X_test = test_df.drop(['timedelta', 'label'], axis=1)
     y_train = train_df['label']
     y_test = test_df['label']
 
@@ -81,10 +83,11 @@ def split_train_test(df, qt = 0.8):
 
 if __name__ == "__main__":
     
+    print('azureml.core.VERSION={}'.format(azureml.core.VERSION))
     # Parse input arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data-folder", type=str, dest='data_folder', default="https://raw.githubusercontent.com/franckess/AzureML_Capstone/main/data/OnlineNewsPopularity.csv", help="data folder")
-    parser.add_argument("--boruta-model", type=str, dest='boruta_model', default="https://github.com/franckess/AzureML_Capstone/blob/main/output/boruta_model.pkl?raw=true", help="boruta folder")
+    parser.add_argument("--data-folder", type=str, dest='data_folder', default=".", help="data folder")
+    parser.add_argument("--boruta-model", type=str, dest='boruta_model', default="https://github.com/franckess/AzureML_Capstone/releases/download/1.0/boruta_model.pkl", help="boruta folder")
     parser.add_argument("--num-leaves", type=int, dest="num_leaves", default=64, help="# of leaves of the tree")
     parser.add_argument("--min-data-in-leaf", type=int, dest="min_data_in_leaf", default=50, help="minimum # of samples in each leaf")
     parser.add_argument("--learning-rate", type=float, dest="learning_rate", default=0.001, help="learning rate")
@@ -100,11 +103,11 @@ if __name__ == "__main__":
     # Start an Azure ML run
     run = Run.get_context()
 
-    # Data path
+    # Data location
     DATA_LOC = args.data_folder
 
-    # Boruta path
-    BORUTA_DIR = args.boruta_model
+    # Boruta model location
+    BORUTA_LOC = args.boruta_model
 
     
   # Parameters of GBM model
@@ -124,7 +127,14 @@ if __name__ == "__main__":
     print(params)
     
     # Load training data
-    df = Dataset.Tabular.from_delimited_files(DATA_LOC)
+    print('Loading data from {}'.format(DATA_LOC))
+    df = pd.read_csv(DATA_LOC)
+
+    # Removing space character in the feature names
+    df.columns = df.columns.str.replace(' ','')
+
+    # Drop URL column
+    df = df.drop(['url'], axis=1)
         
     # Perform Data pre-processing
     df = corr_drop_cols(df)
@@ -133,7 +143,7 @@ if __name__ == "__main__":
 
     df = scaling_num(df)
 
-    df = feature_selection(df, BORUTA_DIR)
+    df = feature_selection(df, BORUTA_LOC)
     
     # Split train data into train & test
     X_train, X_test, y_train, y_test = split_train_test(df)
@@ -142,11 +152,10 @@ if __name__ == "__main__":
     d_val = lgb.Dataset(X_test, y_test)
 
     # Train LightGBM model
-    clf = lgb.train(params, d_train, 100, categorical_feature="auto")
+    clf = lgb.LGBMClassifier(params, d_train, 100, categorical_feature="auto")
 
     #prediction on the test set
     y_pred=clf.predict(X_test)
-    
     
     # view accuracy
     accuracy=accuracy_score(y_pred, y_test)
