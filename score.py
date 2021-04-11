@@ -1,56 +1,102 @@
-# ---------------------------------------------------------
-# Copyright (c) Microsoft Corporation. All rights reserved.
-# ---------------------------------------------------------
-import json
-import logging
+
 import os
-import pickle
-import numpy as np
 import pandas as pd
+import json
+import pickle
+import logging 
 import joblib
 
-import azureml.automl.core
-from azureml.automl.core.shared import logging_utilities, log_server
-from azureml.telemetry import INSTRUMENTATION_KEY
-
-from inference_schema.schema_decorators import input_schema, output_schema
-from inference_schema.parameter_types.numpy_parameter_type import NumpyParameterType
-from inference_schema.parameter_types.pandas_parameter_type import PandasParameterType
-
-
-input_sample = pd.DataFrame({"n_tokens_title": pd.Series([0.0], dtype="float64"), "n_tokens_content": pd.Series([0.0], dtype="float64"), "n_unique_tokens": pd.Series([0.0], dtype="float64"), "num_hrefs": pd.Series([0.0], dtype="float64"), "num_self_hrefs": pd.Series([0.0], dtype="float64"), "num_imgs": pd.Series([0.0], dtype="float64"), "num_videos": pd.Series([0.0], dtype="float64"), "average_token_length": pd.Series([0.0], dtype="float64"), "num_keywords": pd.Series([0.0], dtype="float64"), "data_channel_is_entertainment": pd.Series([0], dtype="int64"), "data_channel_is_bus": pd.Series([0], dtype="int64"), "data_channel_is_socmed": pd.Series([0], dtype="int64"), "data_channel_is_tech": pd.Series([0], dtype="int64"), "data_channel_is_world": pd.Series([0], dtype="int64"), "kw_min_min": pd.Series([0.0], dtype="float64"), "kw_max_min": pd.Series([0.0], dtype="float64"), "kw_min_max": pd.Series([0.0], dtype="float64"), "kw_avg_max": pd.Series([0.0], dtype="float64"), "kw_min_avg": pd.Series([0.0], dtype="float64"), "kw_max_avg": pd.Series([0.0], dtype="float64"), "kw_avg_avg": pd.Series([0.0], dtype="float64"), "self_reference_min_shares": pd.Series([0.0], dtype="float64"), "self_reference_max_shares": pd.Series([0.0], dtype="float64"), "weekday_is_wednesday": pd.Series([0], dtype="int64"), "weekday_is_saturday": pd.Series([0], dtype="int64"), "weekday_is_sunday": pd.Series([0], dtype="int64"), "is_weekend": pd.Series([0], dtype="int64"), "LDA_00": pd.Series([0.0], dtype="float64"), "LDA_01": pd.Series([0.0], dtype="float64"), "LDA_02": pd.Series([0.0], dtype="float64"), "LDA_03": pd.Series([0.0], dtype="float64"), "LDA_04": pd.Series([0.0], dtype="float64"), "global_subjectivity": pd.Series([0.0], dtype="float64"), "global_sentiment_polarity": pd.Series([0.0], dtype="float64"), "global_rate_positive_words": pd.Series([0.0], dtype="float64"), "global_rate_negative_words": pd.Series([0.0], dtype="float64"), "rate_positive_words": pd.Series([0.0], dtype="float64"), "rate_negative_words": pd.Series([0.0], dtype="float64"), "avg_positive_polarity": pd.Series([0.0], dtype="float64"), "min_positive_polarity": pd.Series([0.0], dtype="float64"), "max_positive_polarity": pd.Series([0.0], dtype="float64"), "avg_negative_polarity": pd.Series([0.0], dtype="float64"), "min_negative_polarity": pd.Series([0.0], dtype="float64"), "max_negative_polarity": pd.Series([0.0], dtype="float64"), "title_subjectivity": pd.Series([0.0], dtype="float64"), "title_sentiment_polarity": pd.Series([0.0], dtype="float64"), "abs_title_sentiment_polarity": pd.Series([0.0], dtype="float64")})
-output_sample = np.array([0])
-try:
-    log_server.enable_telemetry(INSTRUMENTATION_KEY)
-    log_server.set_verbosity('INFO')
-    logger = logging.getLogger('azureml.automl.core.scoring_script')
-except:
-    pass
-
+import pingouin as pg
+import numpy as np
+import requests
+import pandas as pd
+import azureml.core
+import lightgbm as lgb
+from io import BytesIO
+from boruta import BorutaPy
+from azureml.core.run import Run
+from urllib.request import urlopen
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
 
 def init():
-    global model
-    # This name is model.id of model that we want to deploy deserialize the model file back
-    # into a sklearn model
-    model_path = os.path.join(os.getenv('AZUREML_MODEL_DIR'), 'model.pkl')
-    path = os.path.normpath(model_path)
-    path_split = path.split(os.sep)
-    log_server.update_custom_dimensions({'model_name': path_split[-3], 'model_version': path_split[-2]})
-    try:
-        logger.info("Loading model from path.")
-        model = joblib.load(model_path)
-        logger.info("Loading successful.")
-    except Exception as e:
-        logging_utilities.log_traceback(e, logger)
-        raise
+    
+    model_path = os.path.join(os.getenv('AZUREML_MODEL_DIR'))
+    print("Model path ", model_path)
+    #load models
+    deploy_model = joblib.load(model_path + '/lgb_model.pkl')
+    
+def corr_drop_cols(df, corr_val = 0.85):
+    df_copy = df.copy() # create a copy
+    corrmat = pg.pairwise_corr(df_copy, method='pearson')[['X', 'Y', 'r']]
+    df_corr = corrmat.sort_values(by='r', ascending=0)[(corrmat['r'] >= corr_val) | (corrmat['r'] <= -1*corr_val)]
+    setcols = set(df_corr.Y.to_list())
+    # Drop columns high correlation values
+    df_copy = df_copy.drop(list(setcols), axis=1)
 
+    return df_copy
 
-@input_schema('data', PandasParameterType(input_sample))
-@output_schema(NumpyParameterType(output_sample))
+def create_label(df):
+    df_copy = df.copy() # create a copy
+    df_copy['label'] = [1 if x >= 1400 else 0 for x in df_copy['shares']]
+    df_copy = df_copy.drop(['shares', 'timedelta'], axis=1)
+    y = df_copy['label'].values
+    labelencoder = LabelEncoder()
+    df_copy['label'] = labelencoder.fit_transform(y)
+    col_list = [s for s in df_copy.columns if 'is' in s]
+    df_copy[col_list] = df_copy[col_list].apply(lambda x: labelencoder.fit_transform(x))
+
+    return df_copy
+
+def scaling_num(df):
+    df_copy = df.copy() # create a copy
+    from sklearn.preprocessing import MinMaxScaler
+    col_list = [s for s in df_copy.columns if 'is' in s] + ['label']
+    num_cols = [m for m in df_copy if m not in col_list]
+    scale = MinMaxScaler()
+    df_copy[num_cols] = pd.DataFrame(scale.fit_transform(df_copy[num_cols].values), columns=[num_cols], index=df_copy.index)
+
+    return df_copy
+
+def feature_selection(df, OUT_LOC):
+    df_copy = df.copy() # create a copy
+    mfile = BytesIO(requests.get(OUT_LOC).content) # BytesIO create a file object out of the response from GitHub 
+    feat_selector = joblib.load(mfile)
+    X = df_copy.drop(['label'], axis=1)
+    keep_cols = list(X.columns[feat_selector.support_]) + ['label']
+    df_copy = df_copy[keep_cols]
+
+    return df_copy
+
+def split_train_test(df):
+    df_copy = df.copy() # create a copy
+    X = df_copy.drop('label', axis=1)
+    y = df_copy.pop('label')
+    # Train-test split 80/20
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, stratify = y, random_state = 100)
+
+    return X_train, X_test, y_train, y_test
+
 def run(data):
+    # Boruta model location
+    BORUTA_LOC = "https://github.com/franckess/AzureML_Capstone/releases/download/1.1/boruta_model_final.pkl"
+    
     try:
-        result = model.predict(data)
-        return json.dumps({"result": result.tolist()})
+        data.columns = data.columns.str.replace(' ','')
+        data = data.drop(['url'], axis=1)
+        data = corr_drop_cols(data)
+        data = create_label(data)
+        data = scaling_num(data)
+        data = feature_selection(data, BORUTA_LOC)
+        y = data.pop('label')
+        X = data.drop(['label'], axis=1)
+        
+        result = deploy_model.predict(X)
+        print("Result is ", result)
+        return result.tolist()
     except Exception as e:
-        result = str(e)
-        return json.dumps({"error": result})
+        error = str(e)
+        prinrt("Error occured ", error)
+        return error
