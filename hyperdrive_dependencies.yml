@@ -1,0 +1,18 @@
+
+channels:
+- conda-forge
+- anaconda
+dependencies:
+- python=3.6.2
+- scikit-learn
+- pandas
+- numpy
+- pip:
+  - azureml-defaults 
+  - pingouin
+  - lightgbm
+  - joblib  
+  - Boruta
+  - inference-schema
+  - azureml-interpret
+  - azureml-train-automl-runtime
