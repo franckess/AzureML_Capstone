@@ -659,12 +659,12 @@ Hyperparameters | Best Value
 `--num-leaves` | 114
 `--min-data-in-leaf` | 240 
 `--learning-rate` | 0.05 
-`--feature-fraction` 0.8767019272422398 
+`--feature-fraction` | 0.8767019272422398 
 `--bagging-fraction` | 0.614723534867458 
-`--bagging-freq` 27 
-`--max-depth` 25
+`--bagging-freq` | 27 
+`--max-depth` | 25
 
-**Model Accuracy: 68.54%** which is better than the one generated using `AutoML` step.
+**Model Accuracy: 68.54%** which is better than the one generated using `AutoML` part.
 
 You can find the best AutoML model in the compressed file [automl_best_model.zip](https://github.com/franckess/AzureML_Capstone/blob/main/output/lgb_model.pkl)
 
