@@ -20,7 +20,7 @@ Below are the steps:
 2. Open `anaconda CMD` in the new folder
 3. Clone this repo
 4. `cd` into the local directory
-5. Run this `conda env create --file udacity_env.yml`
+5. Run this `conda env create --file hyperdrive_dependencies.yml`
 6. Run `jupyter notebook`
 
 ## Architecture Diagram
@@ -169,7 +169,7 @@ Configration | Details | Value
 
 ### Results
 
-- Among all the models trained by AutoML, `Voting Ensemble` outperformed all the other models with `67.71% Accuracy`.
+- Among all the models trained by AutoML, `Voting Ensemble` outperformed all the other models with `67.55% Accuracy`.
 
 	- Ensemble models in Automated ML are combination of multiple iterations which may provide better predictions compared to a single iteration and appear as the final iterations of run.
 	- Two types of ensemble methods for combining models: **Voting** and **Stacking**
@@ -185,7 +185,7 @@ Figure 2. Python SDK Notebook - Accuracy plot using AutoML Run Details widget
 
 ![Alt Text](https://github.com/franckess/AzureML_Capstone/blob/main/img/automl_3.png)
 
-Figure 3. Python SDK Notebook - Best performing run details
+Figure 3. Python SDK Notebook - Best performing run details (incl. Name, ID & Type)
 
 ![Alt Text](https://github.com/franckess/AzureML_Capstone/blob/main/img/automl_4.png)
 
@@ -644,29 +644,33 @@ Figure 9. Azure ML Studio Experiment submitted with HyperDrive from notebook
 
 ![Alt Text](https://github.com/franckess/AzureML_Capstone/blob/main/img/hyperdrive_2.png)
 
-Figure 10. Python SDK Notebook: Monitor progress of run using Run Details widget
+Figure 10. Python SDK Notebook: Output from run using Run Details widget
+
+![Alt Text](https://github.com/franckess/AzureML_Capstone/blob/main/img/hyperdrive_8.png)
+
+Figure 11. Azure ML Studio: Child runs output
 
 ![Alt Text](https://github.com/franckess/AzureML_Capstone/blob/main/img/hyperdrive_3.png)
 
-Figure 11. Python SDK Notebook: Best performing model from hyperparameter tuning using HyperDrive
+Figure 12. Python SDK Notebook: Best performing model from hyperparameter tuning using HyperDrive
 
 ![Alt Text](https://github.com/franckess/AzureML_Capstone/blob/main/img/hyperdrive_4.png)
 
-Figure 12. Python SDK Notebook: HyperDrive Run Primary Metric Plot - Accuracy
+Figure 13. Python SDK Notebook: HyperDrive Run Primary Metric Plot - Accuracy
 
 Hyperparameters | Best Value
 ------------ | -------------
-`--num-leaves` | 114
-`--min-data-in-leaf` | 240 
+`--num-leaves` | 27
+`--min-data-in-leaf` | 450 
 `--learning-rate` | 0.05 
-`--feature-fraction` | 0.8767019272422398 
-`--bagging-fraction` | 0.614723534867458 
-`--bagging-freq` | 27 
+`--feature-fraction` | 0.764 
+`--bagging-fraction` | 0.789 
+`--bagging-freq` | 6 
 `--max-depth` | 25
 
-**Model Accuracy: 68.54%** which is better than the one generated using `AutoML` part.
+**Model Accuracy: 68.2936%** which is better than the one generated using `AutoML` part.
 
-You can find the best AutoML model in the compressed file [automl_best_model.zip](https://github.com/franckess/AzureML_Capstone/blob/main/output/lgb_model.pkl)
+You can find the best AutoML model in the compressed file [lgb_model.pkl](https://github.com/franckess/AzureML_Capstone/blob/main/output/lgb_model.pkl)
 
 For more details about AutoML implementation check: [AutoML notebook](https://github.com/franckess/AzureML_Capstone/blob/main/01_Hyperparameter_tuning_final.ipynb)
 
@@ -702,26 +706,86 @@ Figure 15. Python SDK Notebook: Deployment Completed
 
 ![Alt Text](https://github.com/franckess/AzureML_Capstone/blob/main/img/successful_deployment.png)
 
-Figure 16. Python SDK Notebook: Successful Deployment 
+Figure 16. Python SDK Notebook: Successful Deployment
+
+### Consume model using `endpoint.py`
+
+Once the model is deployed, we could use `scoring_uri` in [endpoint.py](https://github.com/franckess/AzureML_Capstone/blob/main/endpoint.py) script so we can interact with the trained model.
+
+![Alt Text](https://github.com/franckess/AzureML_Capstone/blob/main/img/endpoint.png)
+
+Figure 17. Endpoint consumption
 
 <!-- ## Screen Recording
 
-Click [here](https://youtu.be/U2KGHlXrTfQ) to see a short demo of the project in action showing:
+Click [here](https://youtu.be/BJmFgLb3uUk) to see a short demo of the project in action showing:
 
 - A working model
 - Demo of the deployed  model
 - Demo of a sample request sent to the endpoint and its response
  -->
 
+# Suggestions for future work
+
+- **Downsizing Number of Features**: 
+
+I used `Boruta` and `Correlation Analysis` as way to select a smaller set of features for this project. Another technique that could have been explored/implemented is `PCA` (principal componet analysis).
+
+- **Change parameters of AutoML**
+
+    This could include as mentioned earlier:
+    
+    * Increase `experiment_timeout_minutes` to give more time for AutoML to try other models.
+    * Make use of [`FeaturizationConfig`](https://docs.microsoft.com/en-us/azure/machine-learning/how-to-configure-auto-features), for example, to use other form of imputation of Nan values than the one chosen by AutoML.
+    
+- **Increase `max_total_runs` in HyperDrive**:
+
+Try HyperDrive with higher value of `max_total_runs` to see if the performance increases.
+
 ## Standout Suggestions
 
-### Consume model `endpoint.py`
+### Enable Logging in your deployed web app
 
-Once the model is deployed, we use `scoring_uri` in [endpoint.py](https://github.com/franckess/AzureML_Capstone/blob/main/endpoint.py) script so we can interact with the trained model.
+With this project, we have deployed best performing model to HTTP web service endpoints in `Azure Container Instance (ACI)`. To enable collecting additional data from an endpoint mentioned below, we will be **enabling** [Azure Application Insight](https://docs.microsoft.com/en-us/azure/azure-monitor/app/app-insights-overview) feature, an extensible Application Performance Management (APM) service.
 
-![Alt Text](https://github.com/franckess/AzureML_Capstone/blob/main/img/endpoint.png)
+- Output Data
+- Responses
+- Request rates, response times, and failure rates
+- Dependency rates, response times, and failure rates
+- Exceptions for failed requests
 
-Figure 17. Endpoint consumption
+To perform this step, we have used `logs.py` script uploaded with this repository. We will dynamically authenticate to Azure, enable Application Insight and Display logs for deployed model.
+
+```python
+from azureml.core import Workspace
+from azureml.core.webservice import Webservice
+
+# Requires the config to be downloaded first to the current working directory
+ws = Workspace.from_config()
+
+# Set with the deployment name
+name = "hyperdrive-deployment"
+
+# load existing web service
+service = Webservice(name=name, workspace=ws)
+print(service)
+
+# Enable Application Insight
+service.update(enable_app_insights=True)
+
+logs = service.get_logs()
+
+for line in logs.split('\n'):
+    print(line)
+```
+
+![Alt Text](https://github.com/franckess/AzureML_Capstone/blob/main/img/enable_logging.png)
+
+Figure 18. Result - Enable Application Insight using logs.py
+
+![Alt Text](https://github.com/franckess/AzureML_Capstone/blob/main/img/enable_logging_2.png)
+
+Figure 19. Result - Enable Application Insight using logs.py
 
 <p align="center">
   <img src="https://media.giphy.com/media/beNeX29fBOizu/giphy.gif" alt="animated" />

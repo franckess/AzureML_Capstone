@@ -88,8 +88,6 @@ if __name__ == "__main__":
     print('azureml.core.VERSION={}'.format(azureml.core.VERSION))
     # Parse ainput arguments
     parser = argparse.ArgumentParser()
-    #parser.add_argument("--data-folder", type=str, dest='data_folder', default="https://github.com/franckess/AzureML_Capstone/blob/main/data/OnlineNewsPopularity.csv?raw=true", help="data folder")
-    #parser.add_argument("--boruta-model", type=str, dest='boruta_model', default="https://github.com/franckess/AzureML_Capstone/releases/download/1.1/boruta_model_final.pkl", help="boruta folder")
     parser.add_argument("--num-leaves", type=int, dest="num_leaves", default=64, help="# of leaves of the tree")
     parser.add_argument("--min-data-in-leaf", type=int, dest="min_data_in_leaf", default=50, help="minimum # of samples in each leaf")
     parser.add_argument("--learning-rate", type=float, dest="learning_rate", default=0.001, help="learning rate")
@@ -161,7 +159,7 @@ if __name__ == "__main__":
     
     # view accuracy
     accuracy=accuracy_score(y_pred, y_test)
-    print('LightGBM Model accuracy score: {0:0.4f}'.format(accuracy_score(y_test, y_pred)))
+    print('LightGBM Model accuracy score: {0:0.4f}'.format(accuracy))
     
     # Log the validation loss (NRMSE - normalized root mean squared error)
     run.log("Accuracy", np.float(accuracy))
