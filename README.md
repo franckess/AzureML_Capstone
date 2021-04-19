@@ -716,14 +716,13 @@ Once the model is deployed, we could use `scoring_uri` in [endpoint.py](https://
 
 Figure 17. Endpoint consumption
 
-<!-- ## Screen Recording
+## Screen Recording
 
-Click [here](https://youtu.be/BJmFgLb3uUk) to see a short demo of the project in action showing:
+Click [here](https://youtu.be/_toqXgrG1zw) to see a short demo of the project in action showing:
 
 - A working model
 - Demo of the deployed  model
 - Demo of a sample request sent to the endpoint and its response
- -->
 
 # Suggestions for future work
 
